@@ -1,0 +1,50 @@
+From: Alon Bar-Lev <alon.barlev@gmail.com>
+Date: Sat, Feb 13, 2021 at 11:23 PM
+Subject: openssl cms resign with RSA-PSS corrupts the CMS(?)
+To: <openssl-users@openssl.org>
+
+Hello,
+
+I am trying to resign a CMS using the openssl tool.
+When I use RSA-PKCS1 everything is working fine.
+When I use RSA-PSS it seems like the asn1 is produced corrupted, I do not see the
+signature in asn1dump. 
+
+I prepared a demo[1] to help people reproduce the issue, tested with openssl-1.1.1i.
+The script output pasted below shows that CMS resign without PSS works correctly,
+while the same sequence with PSS produces a corrupted CMS file.
+What am I doing wrong?
+
+Regards,
+Alon Bar-Lev
+
+[1] https://github.com/alonbl/openssl-cms-pss
+
+---
+===============
+CMS without PSS
+===============
+cms -sign 1.cms
+cms -verify 1.cms
+hello world
+Verification successful
+cms -resign 1.cms to 2.cms
+cms -verify 2.cms
+hello world
+Verification successful
+===============
+CMS with PSS
+===============
+cms -sign 1.cms
+cms -verify 1.cms
+hello world
+Verification successful
+cms -resign 1.cms to 2.cms
+cms -verify 2.cms
+Error reading S/MIME message
+140438977062208:error:0D078079:asn1 encoding routines:asn1_item_embed_d2i:field missing:../crypto/asn1/tasn_dec.c:425:Field=algorithm, Type=X509_ALGOR
+140438977062208:error:0D08303A:asn1 encoding routines:asn1_template_noexp_d2i:nested asn1 error:../crypto/asn1/tasn_dec.c:646:Field=signatureAlgorithm, Type=CMS_SignerInfo
+140438977062208:error:0D08303A:asn1 encoding routines:asn1_template_noexp_d2i:nested asn1 error:../crypto/asn1/tasn_dec.c:614:Field=signerInfos, Type=CMS_SignedData
+140438977062208:error:0D08303A:asn1 encoding routines:asn1_template_noexp_d2i:nested asn1 error:../crypto/asn1/tasn_dec.c:646:
+140438977062208:error:0D08403A:asn1 encoding routines:asn1_template_ex_d2i:nested asn1 error:../crypto/asn1/tasn_dec.c:496:Field=d.signedData, Type=CMS_ContentInfo
+FATAL: verify 2.cms failed
