@@ -62,9 +62,13 @@ doit() {
 openssl version
 
 echo "==============="
-echo "CMS without PSS"
+echo "CMS without padding mode"
 echo "==============="
 ( doit )
+echo "==============="
+echo "CMS with PKCS1 padding mode"
+echo "==============="
+( doit "-keyopt rsa_padding_mode:pkcs1" )
 echo "==============="
 echo "CMS with PSS"
 echo "==============="
