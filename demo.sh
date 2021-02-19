@@ -8,7 +8,7 @@ die() {
 doit() {
 	local args="$1"
 	rm -f 1.cms 2.cms
-	echo "cms -sign 1.cms"
+	echo "cms -sign ${args} 1.cms"
 	openssl \
 		cms \
 		-sign \
@@ -32,7 +32,7 @@ doit() {
 		-content data.txt \
 		-noverify \
 		|| die "verify 1.cms failed"
-	echo "cms -resign 1.cms to 2.cms"
+	echo "cms -resign ${args} 1.cms to 2.cms"
 	openssl \
 		cms \
 		-resign \
