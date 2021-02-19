@@ -1,50 +1,101 @@
+---------- Forwarded message ---------
 From: Alon Bar-Lev <alon.barlev@gmail.com>
-Date: Sat, Feb 13, 2021 at 11:23 PM
-Subject: openssl cms resign with RSA-PSS corrupts the CMS(?)
-To: <openssl-users@openssl.org>
+Date: Fri, Feb 19, 2021 at 10:44 PM
+Subject: Re: openssl cms resign with RSA-PSS corrupts the CMS(?)
+To: Thulasi Goriparthi <thulasi.goriparthi@gmail.com>
+Cc: <openssl-users@openssl.org>
 
-Hello,
 
-I am trying to resign a CMS using the openssl tool.
-When I use RSA-PKCS1 everything is working fine.
-When I use RSA-PSS it seems like the asn1 is produced corrupted, I do not see the
-signature in asn1dump. 
+Hi,
 
-I prepared a demo[1] to help people reproduce the issue, tested with openssl-1.1.1i.
-The script output pasted below shows that CMS resign without PSS works correctly,
-while the same sequence with PSS produces a corrupted CMS file.
-What am I doing wrong?
+I am trying to analyze openssl sources, and it looks like the resign
+is implemented in an naive path that does not handle all cases.
+
+In other words, the CMS resign is not working in any case other than
+the default execution path.
+
+For example the -noattr is also not working.
+
+I updated my reproduction project[1] to show all cases of resign that
+do not work CMS_NO_ATTR, CMS_KEY_PARAM.
+
+I believe the root cause is that when resign is executed the
+CMS_final() is not called and instead the i2d_CMS_bio() is called,
+while its logic is incomplete.
+
+I hope this will ring a bell to people who are maintaining the
+crypto/cms/* implementation.
+
+Tested [fails] with:
+  OpenSSL_1_1_1-stable
+  master
 
 Regards,
-Alon Bar-Lev
+Alon
 
 [1] https://github.com/alonbl/openssl-cms-pss
 
 ---
+
+./demo.sh
+OpenSSL 3.0.0-alpha12-dev  (Library: OpenSSL 3.0.0-alpha12-dev )
 ===============
-CMS without PSS
+CMS without padding mode and with attributes
 ===============
-cms -sign 1.cms
+cms -sign  1.cms
 cms -verify 1.cms
+CMS Verification successful
 hello world
-Verification successful
-cms -resign 1.cms to 2.cms
+cms -resign  1.cms to 2.cms
 cms -verify 2.cms
+CMS Verification successful
 hello world
-Verification successful
+===============
+CMS without padding mode and without attributes
+===============
+cms -sign -noattr 1.cms
+cms -verify 1.cms
+CMS Verification successful
+hello world
+cms -resign -noattr 1.cms to 2.cms
+cms -verify 2.cms
+Verification failure
+808278131A7F0000:error:02000077:rsa routines:int_rsa_verify:wrong signature length:crypto/rsa/rsa_sign.c:340:
+808278131A7F0000:error:1C880004:Provider routines:rsa_verify:RSA lib:providers/implementations/signature/rsa.c:736:
+808278131A7F0000:error:1700009E:CMS routines:CMS_SignerInfo_verify_content:verification failure:crypto/cms/cms_sd.c:975:
+808278131A7F0000:error:1700006D:CMS routines:CMS_verify:content verify error:crypto/cms/cms_smime.c:452:
+hello world
+FATAL: verify 2.cms failed
+===============
+CMS with PKCS1 padding mode
+===============
+cms -sign -keyopt rsa_padding_mode:pkcs1 1.cms
+cms -verify 1.cms
+CMS Verification successful
+hello world
+cms -resign -keyopt rsa_padding_mode:pkcs1 1.cms to 2.cms
+cms -verify 2.cms
+Error reading SMIME Content Info
+80923E08EC7F0000:error:06800079:asn1 encoding routines:asn1_item_embed_d2i:field missing:crypto/asn1/tasn_dec.c:425:Field=algorithm, Type=X509_ALGOR
+80923E08EC7F0000:error:0688010A:asn1 encoding routines:asn1_template_noexp_d2i:nested asn1 error:crypto/asn1/tasn_dec.c:641:Field=signatureAlgorithm, Type=CMS_SignerInfo
+80923E08EC7F0000:error:0688010A:asn1 encoding routines:asn1_template_noexp_d2i:nested asn1 error:crypto/asn1/tasn_dec.c:610:Field=signerInfos, Type=CMS_SignedData
+80923E08EC7F0000:error:0688010A:asn1 encoding routines:asn1_template_noexp_d2i:nested asn1 error:crypto/asn1/tasn_dec.c:641:
+80923E08EC7F0000:error:0688010A:asn1 encoding routines:asn1_template_ex_d2i:nested asn1 error:crypto/asn1/tasn_dec.c:495:Field=d.signedData, Type=CMS_ContentInfo
+FATAL: verify 2.cms failed
 ===============
 CMS with PSS
 ===============
-cms -sign 1.cms
+cms -sign -keyopt rsa_padding_mode:pss 1.cms
 cms -verify 1.cms
+CMS Verification successful
 hello world
-Verification successful
-cms -resign 1.cms to 2.cms
+cms -resign -keyopt rsa_padding_mode:pss 1.cms to 2.cms
 cms -verify 2.cms
-Error reading S/MIME message
-140438977062208:error:0D078079:asn1 encoding routines:asn1_item_embed_d2i:field missing:../crypto/asn1/tasn_dec.c:425:Field=algorithm, Type=X509_ALGOR
-140438977062208:error:0D08303A:asn1 encoding routines:asn1_template_noexp_d2i:nested asn1 error:../crypto/asn1/tasn_dec.c:646:Field=signatureAlgorithm, Type=CMS_SignerInfo
-140438977062208:error:0D08303A:asn1 encoding routines:asn1_template_noexp_d2i:nested asn1 error:../crypto/asn1/tasn_dec.c:614:Field=signerInfos, Type=CMS_SignedData
-140438977062208:error:0D08303A:asn1 encoding routines:asn1_template_noexp_d2i:nested asn1 error:../crypto/asn1/tasn_dec.c:646:
-140438977062208:error:0D08403A:asn1 encoding routines:asn1_template_ex_d2i:nested asn1 error:../crypto/asn1/tasn_dec.c:496:Field=d.signedData, Type=CMS_ContentInfo
+Error reading SMIME Content Info
+80128DE87C7F0000:error:06800079:asn1 encoding routines:asn1_item_embed_d2i:field missing:crypto/asn1/tasn_dec.c:425:Field=algorithm, Type=X509_ALGOR
+80128DE87C7F0000:error:0688010A:asn1 encoding routines:asn1_template_noexp_d2i:nested asn1 error:crypto/asn1/tasn_dec.c:641:Field=signatureAlgorithm, Type=CMS_SignerInfo
+80128DE87C7F0000:error:0688010A:asn1 encoding routines:asn1_template_noexp_d2i:nested asn1 error:crypto/asn1/tasn_dec.c:610:Field=signerInfos, Type=CMS_SignedData
+80128DE87C7F0000:error:0688010A:asn1 encoding routines:asn1_template_noexp_d2i:nested asn1 error:crypto/asn1/tasn_dec.c:641:
+80128DE87C7F0000:error:0688010A:asn1 encoding routines:asn1_template_ex_d2i:nested asn1 error:crypto/asn1/tasn_dec.c:495:Field=d.signedData, Type=CMS_ContentInfo
 FATAL: verify 2.cms failed
+make: *** [Makefile:7: check] Error 1
