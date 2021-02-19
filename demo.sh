@@ -62,9 +62,13 @@ doit() {
 openssl version
 
 echo "==============="
-echo "CMS without padding mode"
+echo "CMS without padding mode and with attributes"
 echo "==============="
 ( doit )
+echo "==============="
+echo "CMS without padding mode and without attributes"
+echo "==============="
+( doit "-noattr" )
 echo "==============="
 echo "CMS with PKCS1 padding mode"
 echo "==============="
