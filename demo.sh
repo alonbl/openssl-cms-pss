@@ -59,6 +59,8 @@ doit() {
 		|| die "verify 2.cms failed"
 }
 
+openssl version
+
 echo "==============="
 echo "CMS without PSS"
 echo "==============="
